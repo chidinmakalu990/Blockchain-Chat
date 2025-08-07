@@ -203,6 +203,11 @@
     )
 )
 
+;; Validate thread ID exists
+(define-private (thread-exists (thread-id uint))
+    (is-some (map-get? conversation-threads thread-id))
+)
+
 ;; Check if users are different
 (define-private (are-different-users (user1 principal) (user2 principal))
     (not (is-eq user1 user2))
@@ -431,20 +436,25 @@
     )
 )
 
-;; Update thread status
+;; Update thread status - FIXED VERSION
 (define-public (update-thread-status (thread-id uint) (active bool))
     (let ((requester tx-sender))
+        ;; First validate that the thread exists
+        (asserts! (thread-exists thread-id) ERR-INVALID-THREAD)
+        (asserts! (is-platform-active) ERR-PLATFORM-DISABLED)
+        
         (match (map-get? conversation-threads thread-id)
             thread-data
                 (begin
+                    ;; Check if requester is the thread creator
                     (asserts! (is-eq (get creator thread-data) requester) ERR-UNAUTHORIZED-ACCESS)
-                    (asserts! (is-platform-active) ERR-PLATFORM-DISABLED)
                     
+                    ;; Update the thread status
                     (map-set conversation-threads thread-id 
                         (merge thread-data { active: active }))
                     (ok true)
                 )
-            ERR-INVALID-THREAD
+            ERR-INVALID-THREAD ;; This should never be reached due to the earlier check
         )
     )
 )
